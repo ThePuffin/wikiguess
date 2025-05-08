@@ -1,95 +1,87 @@
 <script setup>
-import WelcomeItem from './WelcomeItem.vue'
-import DocumentationIcon from './icons/IconDocumentation.vue'
-import ToolingIcon from './icons/IconTooling.vue'
-import EcosystemIcon from './icons/IconEcosystem.vue'
-import CommunityIcon from './icons/IconCommunity.vue'
-import SupportIcon from './icons/IconSupport.vue'
+import { ref, onMounted } from 'vue'
 
-const openReadmeInEditor = () => fetch('/__open-in-editor?file=README.md')
+const baseUrl = 'https://fr.wikipedia.org/w/api.php'
+
+async function fetchRandomWikiArticles() {
+  const url = new URL(baseUrl)
+  const params = {
+    action: 'query',
+    format: 'json',
+    generator: 'random',
+    grnnamespace: 0,
+    prop: 'revisions',
+    rvprop: 'content',
+    grnlimit: 5,
+    origin: '*',
+  }
+  Object.keys(params).forEach((key) => url.searchParams.append(key, params[key]))
+
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const data = await response.json()
+    const pages = Object.values(data.query.pages)
+    pages.sort((a, b) => (b.index || 0) - (a.index || 0))
+    return pages
+  } catch (error) {
+    console.error('Error fetching data:', error)
+  }
+}
+
+const fetchWikiArticle = async (search = 'wikipedia') => {
+  const url = new URL(baseUrl)
+  const params = {
+    origin: '*',
+    format: 'json',
+    action: 'parse',
+    prop: 'wikitext',
+    page: search,
+  }
+  Object.keys(params).forEach((key) => url.searchParams.append(key, params[key]))
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const data = await response.json()
+    const wikitext = data.parse.wikitext['*']
+    const firstParagraph = wikitext.split('\n').find((line) => {
+      const wordCount = line.trim().split(/\s+/).length
+      return line.trim() !== '' && !line.startsWith('=') && wordCount > 25
+    })
+    return firstParagraph
+  } catch (error) {
+    console.error('Error fetching data:', error)
+  }
+}
+
+let text = ref('no article yet')
+let title = ref('no title yet')
+let fetchedArticles = ref([])
+let search = ''
+
+onMounted(async () => {
+  const randomArticle = await fetchRandomWikiArticles()
+
+  let article = ''
+  while (article === '') {
+    search = title.value = randomArticle[0].title
+    article = await fetchWikiArticle(search)
+    if (article) {
+      fetchedArticles.value.push(article)
+    }
+  }
+
+  text.value = fetchedArticles.value[0]
+})
 </script>
 
 <template>
-  <WelcomeItem>
-    <template #icon>
-      <DocumentationIcon />
-    </template>
-    <template #heading>Documentation</template>
-
-    Vue’s
-    <a href="https://vuejs.org/" target="_blank" rel="noopener">official documentation</a>
-    provides you with all information you need to get started.
-  </WelcomeItem>
-
-  <WelcomeItem>
-    <template #icon>
-      <ToolingIcon />
-    </template>
-    <template #heading>Tooling</template>
-
-    This project is served and bundled with
-    <a href="https://vite.dev/guide/features.html" target="_blank" rel="noopener">Vite</a>. The
-    recommended IDE setup is
-    <a href="https://code.visualstudio.com/" target="_blank" rel="noopener">VSCode</a>
-    +
-    <a href="https://github.com/vuejs/language-tools" target="_blank" rel="noopener"
-      >Vue - Official</a
-    >. If you need to test your components and web pages, check out
-    <a href="https://vitest.dev/" target="_blank" rel="noopener">Vitest</a>
-    and
-    <a href="https://www.cypress.io/" target="_blank" rel="noopener">Cypress</a>
-    /
-    <a href="https://playwright.dev/" target="_blank" rel="noopener">Playwright</a>.
-
-    <br />
-
-    More instructions are available in
-    <a href="javascript:void(0)" @click="openReadmeInEditor"><code>README.md</code></a
-    >.
-  </WelcomeItem>
-
-  <WelcomeItem>
-    <template #icon>
-      <EcosystemIcon />
-    </template>
-    <template #heading>Ecosystem</template>
-
-    Get official tools and libraries for your project:
-    <a href="https://pinia.vuejs.org/" target="_blank" rel="noopener">Pinia</a>,
-    <a href="https://router.vuejs.org/" target="_blank" rel="noopener">Vue Router</a>,
-    <a href="https://test-utils.vuejs.org/" target="_blank" rel="noopener">Vue Test Utils</a>, and
-    <a href="https://github.com/vuejs/devtools" target="_blank" rel="noopener">Vue Dev Tools</a>. If
-    you need more resources, we suggest paying
-    <a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">Awesome Vue</a>
-    a visit.
-  </WelcomeItem>
-
-  <WelcomeItem>
-    <template #icon>
-      <CommunityIcon />
-    </template>
-    <template #heading>Community</template>
-
-    Got stuck? Ask your question on
-    <a href="https://chat.vuejs.org" target="_blank" rel="noopener">Vue Land</a>
-    (our official Discord server), or
-    <a href="https://stackoverflow.com/questions/tagged/vue.js" target="_blank" rel="noopener"
-      >StackOverflow</a
-    >. You should also follow the official
-    <a href="https://bsky.app/profile/vuejs.org" target="_blank" rel="noopener">@vuejs.org</a>
-    Bluesky account or the
-    <a href="https://x.com/vuejs" target="_blank" rel="noopener">@vuejs</a>
-    X account for latest news in the Vue world.
-  </WelcomeItem>
-
-  <WelcomeItem>
-    <template #icon>
-      <SupportIcon />
-    </template>
-    <template #heading>Support Vue</template>
-
-    As an independent project, Vue relies on community backing for its sustainability. You can help
-    us by
-    <a href="https://vuejs.org/sponsor/" target="_blank" rel="noopener">becoming a sponsor</a>.
-  </WelcomeItem>
+  <h1>Welcome to the WikiGuess Game!</h1>
+  <h2>Guess the Wikipedia article from the text below:</h2>
+  <h3>you have to find "{{ title }}""</h3>
+  {{ text }}
 </template>
